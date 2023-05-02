@@ -3,95 +3,95 @@ import SearchImages, { PER_PAGE } from "./utils/PixabayHandler";
 import Searchbar from "./components/Searchbar/Searchbar";
 import ImageGallery from "./components/ImageGallery/ImageGallery";
 import Button from "./components/Button/Button";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Notify } from "notiflix";
 import Loader from "./components/Loader/Loader";
 import Modal from "./components/Modal/Modal";
 
-class App extends React.Component {
-  state = {
-    page: 1,
-    totalHits: 0,
-    images: [],
-    querry: "",
-    isLoading: false,
-    isMore: false,
-    showModal: false,
-  };
+const App = () => {
+  const [querry, setQuerry] = useState("");
+  const [page, setPage] = useState(1);
+  const imagesRef = useRef([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isMore, setIsMore] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalImage, setModalImage] = useState("");
 
-  render() {
-    return (
-      <>
-        <Searchbar onSubmit={this.onQuerrySubmit}></Searchbar>
-        <ImageGallery images={this.state.images} modalCallback={this.turnOnModal}></ImageGallery>
-        {this.state.isMore && <Button title="Load more" callback={this.loadMore}></Button>}
-        {this.state.isLoading && <Loader />}
-        {this.state.showModal && (
-          <Modal src={this.state.modalImage} closeCallback={this.turnOffModalByClick}></Modal>
-        )}
-      </>
-    );
-  }
-
-  async componentDidUpdate(prevProps, prevState) {
-    const { page, images, querry } = this.state;
-    if ((prevState.page === page && prevState.querry === querry) || querry === "") {
-      return;
-    }
-    const querryResult = await SearchImages(querry, page);
-    if (querryResult.success) {
-      const totalHits = querryResult.picturesData.totalHits;
-      const newImages = images.concat(querryResult.picturesData.hits);
-      const isMore = totalHits > page * PER_PAGE;
-      this.setState({ totalHits, images: newImages, isMore, isLoading: false });
-    } else {
-      Notify.failure(querryResult.errorMessage);
-      this.setState({ isLoading: false });
-    }
-  }
-
-  onQuerrySubmit = (e) => {
+  const onQuerrySubmit = (e) => {
     e.preventDefault();
     const newQuerry = e.target.elements["querry-input"].value;
-    if (this.state.querry === newQuerry) {
+    if (querry === newQuerry) {
       return;
     }
-    this.setState({
-      page: 1,
-      totalHits: 0,
-      images: [],
-      querry: newQuerry,
-      isLoading: true,
-      isMore: false,
-    });
+    setPage(1);
+    imagesRef.current = [];
+    setQuerry(newQuerry);
+    setIsLoading(true);
+    setIsMore(false);
   };
 
-  loadMore = (e) => {
-    this.setState({ page: this.state.page + 1, isLoading: true });
+  const loadMore = (e) => {
+    setPage(page + 1);
+    setIsLoading(true);
   };
 
-  turnOnModal = (e) => {
+  const turnOnModal = (e) => {
     const modalImage = e.target.dataset.src;
-    this.setState({ modalImage, showModal: true });
-    document.addEventListener("keydown", this.turnOffModalByKey);
+    document.addEventListener("keydown", turnOffModalByKey);
+    setModalImage(modalImage);
+    setShowModal(true);
   };
 
-  turnOffModal = () => {
-    document.removeEventListener("keydown", this.turnOffModalByKey);
-    this.setState({ showModal: false });
+  const turnOffModal = () => {
+    document.removeEventListener("keydown", turnOffModalByKey);
+    setShowModal(false);
   };
 
-  turnOffModalByClick = (e) => {
+  const turnOffModalByClick = (e) => {
     if (e.currentTarget === e.target) {
-      this.turnOffModal();
+      turnOffModal();
     }
   };
 
-  turnOffModalByKey = (e) => {
+  const turnOffModalByKey = (e) => {
     if (e.key === "Escape") {
-      this.turnOffModal();
+      turnOffModal();
     }
   };
-}
+
+  const handleQuerrySuccess = (picturesData) => {
+    imagesRef.current = imagesRef.current.concat(picturesData.hits);
+    setIsMore(picturesData.totalHits > page * PER_PAGE);
+    setIsLoading(false);
+  };
+
+  const handleQuerryFailure = (errorMessage) => {
+    Notify.failure(errorMessage);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    SearchImages(querry, page).then(
+      (querryResult) => {
+        if (querryResult.success) {
+          handleQuerrySuccess(querryResult.picturesData);
+        } else {
+          handleQuerryFailure(querryResult.errorMessage);
+        }
+      },
+      [page, querry]
+    );
+  });
+
+  return (
+    <>
+      <Searchbar onSubmit={onQuerrySubmit}></Searchbar>
+      <ImageGallery images={imagesRef.current} modalCallback={turnOnModal}></ImageGallery>
+      {isMore && <Button title="Load more" callback={loadMore}></Button>}
+      {isLoading && <Loader />}
+      {showModal && <Modal src={modalImage} closeCallback={turnOffModalByClick}></Modal>}
+    </>
+  );
+};
 
 export default App;
