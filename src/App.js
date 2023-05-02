@@ -3,15 +3,14 @@ import SearchImages, { PER_PAGE } from "./utils/PixabayHandler";
 import Searchbar from "./components/Searchbar/Searchbar";
 import ImageGallery from "./components/ImageGallery/ImageGallery";
 import Button from "./components/Button/Button";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Notify } from "notiflix";
 import Loader from "./components/Loader/Loader";
 import Modal from "./components/Modal/Modal";
 
 const App = () => {
-  const [querry, setQuerry] = useState("");
-  const [page, setPage] = useState(1);
-  const imagesRef = useRef([]);
+  const [querryInfo, setQuerryInfo] = useState({ page: 1, querry: "" });
+  const [images, setImages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isMore, setIsMore] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -20,18 +19,18 @@ const App = () => {
   const onQuerrySubmit = (e) => {
     e.preventDefault();
     const newQuerry = e.target.elements["querry-input"].value;
-    if (querry === newQuerry) {
+    if (querryInfo.querry === newQuerry) {
       return;
     }
-    setPage(1);
-    imagesRef.current = [];
-    setQuerry(newQuerry);
+    const newQuerryInfo = { page: 1, querry: newQuerry };
+    setImages([]);
+    setQuerryInfo(newQuerryInfo);
     setIsLoading(true);
     setIsMore(false);
   };
 
   const loadMore = (e) => {
-    setPage(page + 1);
+    setQuerryInfo({ ...querryInfo, page: querryInfo.page + 1 });
     setIsLoading(true);
   };
 
@@ -59,34 +58,26 @@ const App = () => {
     }
   };
 
-  const handleQuerrySuccess = (picturesData) => {
-    imagesRef.current = imagesRef.current.concat(picturesData.hits);
-    setIsMore(picturesData.totalHits > page * PER_PAGE);
-    setIsLoading(false);
-  };
-
-  const handleQuerryFailure = (errorMessage) => {
-    Notify.failure(errorMessage);
-    setIsLoading(false);
-  };
-
   useEffect(() => {
-    SearchImages(querry, page).then(
-      (querryResult) => {
+    const { querry, page } = querryInfo;
+    if (querry !== "") {
+      SearchImages(querry, page).then((querryResult) => {
         if (querryResult.success) {
-          handleQuerrySuccess(querryResult.picturesData);
+          const picturesData = querryResult.picturesData;
+          setImages((i) => i.concat(picturesData.hits));
+          setIsMore(picturesData.totalHits > page * PER_PAGE);
         } else {
-          handleQuerryFailure(querryResult.errorMessage);
+          Notify.failure(querryResult.errorMessage);
         }
-      },
-      [page, querry]
-    );
-  });
+      });
+    }
+    setIsLoading(false);
+  }, [querryInfo]);
 
   return (
     <>
       <Searchbar onSubmit={onQuerrySubmit}></Searchbar>
-      <ImageGallery images={imagesRef.current} modalCallback={turnOnModal}></ImageGallery>
+      <ImageGallery images={images} modalCallback={turnOnModal}></ImageGallery>
       {isMore && <Button title="Load more" callback={loadMore}></Button>}
       {isLoading && <Loader />}
       {showModal && <Modal src={modalImage} closeCallback={turnOffModalByClick}></Modal>}
