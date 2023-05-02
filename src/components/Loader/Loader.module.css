@@ -1,0 +1,12 @@
+.Loader {
+  position: fixed;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  height: fit-content;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-radius: 100%;
+  left: calc(50% - 40px);
+  top: calc(50% - 40px);
+}
